@@ -792,7 +792,7 @@ function db_delete
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        print `zenity --info --text="$FILE_SRC was Downloaded"`
+        `zenity --info --text="The file: ·FILE_DST , was deleted"`
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -815,13 +815,13 @@ function db_move
         FILE_DST=$(normalize_path "$FILE_DST/$filename")
     fi
 
-    print " > Moving \"$FILE_SRC\" to \"$FILE_DST\" ... "
+    #print " > Moving \"$FILE_SRC\" to \"$FILE_DST\" ... "
     $CURL_BIN $CURL_ACCEPT_CERTIFICATES -s --show-error --globoff -i -o "$RESPONSE_FILE" --data "oauth_consumer_key=$APPKEY&oauth_token=$OAUTH_ACCESS_TOKEN&oauth_signature_method=PLAINTEXT&oauth_signature=$APPSECRET%26$OAUTH_ACCESS_TOKEN_SECRET&oauth_timestamp=$(utime)&oauth_nonce=$RANDOM&root=$ACCESS_LEVEL&from_path=$(urlencode "$FILE_SRC")&to_path=$(urlencode "$FILE_DST")" "$API_MOVE_URL" 2> /dev/null
     check_http_response
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        `zenity --info --text="$FILE_SRC was Downloaded"`
+        `zenity --info --text="$FILE_SRC Was moved to $FILE_DST"`
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -869,7 +869,7 @@ function db_mkdir
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        `zenity --info --text="$DIR_DST was Downloaded"`
+        `zenity --info --text="the folder: $DIR_DST ,Was created"`
     elif grep -q "^HTTP/1.1 403 Forbidden" "$RESPONSE_FILE"; then
         `zenity --info --text="ALREADY EXISTS"`
     else
@@ -942,8 +942,7 @@ function db_share
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        print " > Share link: "
-        echo $(sed -n 's/.*"url": "\([^"]*\).*/\1/p' "$RESPONSE_FILE")  //
+        `zenity --info --text="Share link for $FILE_DST is: $(sed -n 's/.*"url": "\([^"]*\).*/\1/p' "$RESPONSE_FILE")"`  //
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -978,29 +977,21 @@ if [[ -f $CONFIG_FILE ]]; then
 #NEW SETUP...
 else
 
-    echo -ne "\n This is the first time you run this script.\n\n"
-    echo -ne " 1) Open the following URL in your Browser, and log in using your account: $APP_CREATE_URL\n"
-    echo -ne " 2) Click on \"Create App\", then select \"Dropbox API app\"\n"
-    echo -ne " 3) Select \"Files and datastores\"\n"
-    echo -ne " 4) Now go on with the configuration, choosing the app permissions and access restrictions to your DropBox folder\n"
-    echo -ne " 5) Enter the \"App Name\" that you prefer (e.g. MyUploader$RANDOM$RANDOM$RANDOM)\n\n"
+    ENTRY=$(zenity --info --title="To conect your account" \
+	--text="This is the first time you run this script.\n\n
+    1) Open the following URL in your Browser, and log in using your account: $APP_CREATE_URL\n
+    2) Click on \"Create App\", then select \"Dropbox API app\"\n
+    3) Select \"Files and datastores\"\n
+    4) Now go on with the configuration, choosing the app permissions and access restrictions to your DropBox folder\n
+    5) Enter the \"App Name\" that you prefer (e.g. MyUploader$RANDOM$RANDOM$RANDOM)\n\n
+        Now, click on the \"Create app\" button.\n\n
+        When your new App is successfully created, please type the\n
+        App Key, App Secret and the Permission type shown in the confirmation page:"\ )
 
-    echo -ne " Now, click on the \"Create app\" button.\n\n"
+APPKEY=`zenity --entry --title="Dropbox Uploader V(11.13) -" --text="Enter App Key: "`
+APPSECRET=`zenity --entry --title="Dropbox Uploader V(11.13) -" --text="Enter App Secret: "`
+ACCESS_LEVEL=`zenity --entry --title="Dropbox Uploader V(11.13) -" --text="Permission type, App folder or Full Dropbox [a/f]: "`
 
-    echo -ne " When your new App is successfully created, please type the\n"
-    echo -ne " App Key, App Secret and the Permission type shown in the confirmation page:\n\n"
-
-    #Getting the app key and secret from the user
-    while (true); do
-
-        echo -n " # App key: "
-        read APPKEY
-
-        echo -n " # App secret: "
-        read APPSECRET
-
-        echo -n " # Permission type, App folder or Full Dropbox [a/f]: "
-        read ACCESS_LEVEL
 
         if [[ $ACCESS_LEVEL == "a" ]]; then
             ACCESS_LEVEL="sandbox"
@@ -1010,15 +1001,19 @@ else
             ACCESS_MSG="Full Dropbox"
         fi
 
-        echo -ne "\n > App key is $APPKEY, App secret is $APPSECRET and Access level is $ACCESS_MSG, it's ok? [y/n]"
-        read answer
-        if [[ $answer == "y" ]]; then
+
+
+        answer= zenity --question --title="Dropbox Uploader V(11.13) " --text="App key is: $APPKEY\n
+        App secret is: $APPSECRET \n
+        Access level is $ACCESS_MSG\n\n
+        it's ok ? "
+        if [[ $answer == "1" ]]; then
             break;
         fi
 
-    done
+        #done
     #TOKEN REQUESTS
-    echo -ne "\n > Token request... "
+    #echo -ne "\n > Token request... "
     $CURL_BIN $CURL_ACCEPT_CERTIFICATES -s --show-error --globoff -i -o $RESPONSE_FILE --data "oauth_consumer_key=$APPKEY&oauth_signature_method=PLAINTEXT&oauth_signature=$APPSECRET%26&oauth_timestamp=$(utime)&oauth_nonce=$RANDOM" "$API_REQUEST_TOKEN_URL" 2> /dev/null
     check_http_response
     OAUTH_TOKEN_SECRET=$(sed -n 's/oauth_token_secret=\([a-z A-Z 0-9]*\).*/\1/p' "$RESPONSE_FILE")
@@ -1148,7 +1143,7 @@ case $COMMAND in
         fi
 
         db_share "/$FILE_DST"
-        `zenity --info --text="Share link for $FILE_DST is: $(sed -n 's/.*"url": "\([^"]*\).*/\1/p' "$RESPONSE_FILE")"`
+
 
 
     ;;
@@ -1171,7 +1166,7 @@ case $COMMAND in
         fi
 
         db_delete "/$FILE_DST"
-        `zenity --info --text="The file: ·FILE_DST , was deleted"`
+
 
 
     ;;
@@ -1196,7 +1191,7 @@ case $COMMAND in
         fi
 
         db_move "/$FILE_SRC" "/$FILE_DST"
-        `zenity --info --text="$FILE_SRC Was moved to $FILE_DST"`
+
 
 
     ;;
@@ -1221,7 +1216,7 @@ case $COMMAND in
         fi
 
         db_copy "/$FILE_SRC" "/$FILE_DST"
-        `zenity --info --text="$FILE_SRC Was copied"`
+
 
     ;;
 
@@ -1237,7 +1232,7 @@ case $COMMAND in
         fi
 
         db_mkdir "/$DIR_DST"
-        `zenity --info --text="the folder: $DIR_DST ,Was created"`
+
 
     ;;
 
@@ -1261,10 +1256,7 @@ case $COMMAND in
 
     *)
 
-        if [[ $COMMAND != "" ]]; then
-            print "Error: Unknown command: $COMMAND\n\n"
-            ERROR_STATUS=1
-        fi
+
     ;;
 
 esac
