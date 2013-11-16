@@ -461,11 +461,10 @@ function db_simple_upload_file
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        `zenity --info --text="$FILE_SRC was Upload"`
+        print "DONE\n"
     else
-        `zenity --info --text="$FILE_SRC wasn't Upload\n
-        An error occurred requesting /upload"`
-
+        print "FAILED\n"
+        print "An error occurred requesting /upload\n"
         ERROR_STATUS=1
     fi
 }
@@ -622,7 +621,7 @@ function db_download
 
         #Check
         if [[ $? == 0 ]]; then
-            `zenity --info --text="$FILE_SRC was Downloaded"`
+            print "DONE\n"
         else
             print "FAILED\n"
             ERROR_STATUS=1
@@ -717,7 +716,7 @@ function db_download_file
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        `zenity --info --text="$FILE_SRC was Downloaded"`
+        print "DONE\n"
     else
         print "FAILED\n"
         rm -fr "$FILE_DST"
@@ -730,6 +729,7 @@ function db_download_file
 function db_account_info
 {
     print "Dropbox Uploader v$VERSION\n\n"
+    print " > Getting info... "
     $CURL_BIN $CURL_ACCEPT_CERTIFICATES -s --show-error --globoff -i -o "$RESPONSE_FILE" --data "oauth_consumer_key=$APPKEY&oauth_token=$OAUTH_ACCESS_TOKEN&oauth_signature_method=PLAINTEXT&oauth_signature=$APPSECRET%26$OAUTH_ACCESS_TOKEN_SECRET&oauth_timestamp=$(utime)&oauth_nonce=$RANDOM" "$API_INFO_URL" 2> /dev/null
     check_http_response
 
@@ -766,10 +766,12 @@ function db_account_info
 
 #Account unlink
 function db_unlink
-{   answer=`zenity --entry --title="Unlink" --text="Are you sure you want unlink this script from your Dropbox account? [y/n]"`
-        if [[ $answer == "y" ]]; then
+{
+    echo -ne "Are you sure you want unlink this script from your Dropbox account? [y/n]"
+    read answer
+    if [[ $answer == "y" ]]; then
         rm -fr "$CONFIG_FILE"
-#        echo -ne "DONE\n"
+        echo -ne "DONE\n"
     fi
 }
 
@@ -785,7 +787,7 @@ function db_delete
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        print `zenity --info --text="$FILE_SRC was Downloaded"`
+        print "DONE\n"
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -814,7 +816,7 @@ function db_move
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        `zenity --info --text="$FILE_SRC was Downloaded"`
+        print "DONE\n"
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -843,7 +845,7 @@ function db_copy
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        `zenity --info --text="$FILE_SRC was Copied"`
+        print "DONE\n"
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -862,9 +864,9 @@ function db_mkdir
 
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
-        `zenity --info --text="$DIR_DST was Downloaded"`
+        print "DONE\n"
     elif grep -q "^HTTP/1.1 403 Forbidden" "$RESPONSE_FILE"; then
-        `zenity --info --text="ALREADY EXISTS"`
+        print "ALREADY EXISTS\n"
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -876,7 +878,8 @@ function db_mkdir
 function db_list
 {
     local DIR_DST=$(normalize_path "$1")
-    print "Estos son tus archivos en $DIR_DST \n\n"
+
+    print " > Listing \"$DIR_DST\"... "
     $CURL_BIN $CURL_ACCEPT_CERTIFICATES -s --show-error --globoff -i -o "$RESPONSE_FILE" "$API_METADATA_URL/$ACCESS_LEVEL/$(urlencode "$DIR_DST")?oauth_consumer_key=$APPKEY&oauth_token=$OAUTH_ACCESS_TOKEN&oauth_signature_method=PLAINTEXT&oauth_signature=$APPSECRET%26$OAUTH_ACCESS_TOKEN_SECRET&oauth_timestamp=$(utime)&oauth_nonce=$RANDOM" 2> /dev/null
     check_http_response
 
@@ -888,6 +891,7 @@ function db_list
         #It's a directory
         if [[ $IS_DIR != "" ]]; then
 
+            print "DONE\n"
 
             #Extracting directory content [...]
             #and replacing "}, {" with "}\n{"
@@ -906,9 +910,9 @@ function db_list
                 local TYPE=${line#*:}
 
                 if [[ $TYPE == "false" ]]; then
-                    echo -ne " [File] - $FILE\n\n"
+                    echo -ne " [F] $FILE\n"
                 else
-                    echo -ne " [Directory] - $FILE\n\n"
+                    echo -ne " [D] $FILE\n"
                 fi
             done < $RESPONSE_FILE
 
@@ -936,7 +940,7 @@ function db_share
     #Check
     if grep -q "^HTTP/1.1 200 OK" "$RESPONSE_FILE"; then
         print " > Share link: "
-        echo $(sed -n 's/.*"url": "\([^"]*\).*/\1/p' "$RESPONSE_FILE")  //
+        echo $(sed -n 's/.*"url": "\([^"]*\).*/\1/p' "$RESPONSE_FILE")
     else
         print "FAILED\n"
         ERROR_STATUS=1
@@ -1010,6 +1014,7 @@ else
         fi
 
     done
+
     #TOKEN REQUESTS
     echo -ne "\n > Token request... "
     $CURL_BIN $CURL_ACCEPT_CERTIFICATES -s --show-error --globoff -i -o $RESPONSE_FILE --data "oauth_consumer_key=$APPKEY&oauth_signature_method=PLAINTEXT&oauth_signature=$APPSECRET%26&oauth_timestamp=$(utime)&oauth_nonce=$RANDOM" "$API_REQUEST_TOKEN_URL" 2> /dev/null
@@ -1068,20 +1073,7 @@ fi
 #### START  ####
 ################
 
-COMMAND=`zenity --list --title="Dropbox Uploader V(11.13)" --text="Select an operation" \
-     --radiolist \
-     --width="480" --height="350" \
-     --column="O" --column="Operation" --column="Description" \
-     FALSE "upload" "Upload your files"\
-     FALSE "download" "Download your files" \
-     FALSE "delete" "Delete a file " \
-     FALSE "move" "Move files to another folder" \
-     FALSE "copy" "Make a copy of your files" \
-     FALSE "mkdir" "Make a new folder" \
-     FALSE "list" "Watch your files in your account"  \
-     FALSE "share" "Get a link to share your files"  \
-     FALSE "info" "Watch your info"  \
-     FALSE "unlink" "Disconnect your account"`
+COMMAND=${@:$OPTIND:1}
 ARG1=${@:$OPTIND+1:1}
 ARG2=${@:$OPTIND+2:1}
 
@@ -1090,8 +1082,8 @@ case $COMMAND in
 
     upload)
 
-        FILE_SRC=`zenity --file-selection --title="Dropbox Uploader V(11.13) - Upload"`
-        FILE_DST=`zenity --entry --title="Destiny folder" --text="Folder"`
+        FILE_SRC=$ARG1
+        FILE_DST=$ARG2
 
         #Checking FILE_SRC
         if [[ $FILE_SRC == "" ]]; then
@@ -1111,13 +1103,13 @@ case $COMMAND in
 
         db_upload "$FILE_SRC" "/$FILE_DST"
 
-
     ;;
 
     download)
 
-        FILE_SRC=`zenity --entry --title="Dropbox Uploader V(11.13) - Download" --text="Write root file"`
-        FILE_DST=`zenity --entry --title="Download" --text="Write destiny folder"`
+        FILE_SRC=$ARG1
+        FILE_DST=$ARG2
+
         #Checking FILE_SRC
         if [[ $FILE_SRC == "" ]]; then
             print "Error: invalid source file or directory"
@@ -1131,7 +1123,7 @@ case $COMMAND in
 
     share)
 
-        FILE_DST=`zenity --entry --title="Dropbox Uploader V(11.13) - Share " --text="Write the file to share"`
+        FILE_DST=$ARG1
 
         #Checking FILE_DST
         if [[ $FILE_DST == "" ]]; then
@@ -1141,20 +1133,18 @@ case $COMMAND in
         fi
 
         db_share "/$FILE_DST"
-        `zenity --info --text="Share link for $FILE_DST is: $(sed -n 's/.*"url": "\([^"]*\).*/\1/p' "$RESPONSE_FILE")"`
-
 
     ;;
 
     info)
 
-        `zenity --info --text="$(db_account_info)"`
+        db_account_info
 
     ;;
 
     delete|remove)
 
-        FILE_DST=`zenity --entry --title="Dropbox Uploader V(11.13) - Delete" --text="Write the file to delete:"`
+        FILE_DST=$ARG1
 
         #Checking FILE_DST
         if [[ $FILE_DST == "" ]]; then
@@ -1164,15 +1154,13 @@ case $COMMAND in
         fi
 
         db_delete "/$FILE_DST"
-        `zenity --info --text="The file: ·FILE_DST , was deleted"`
-
 
     ;;
 
     move|rename)
 
-        FILE_SRC=`zenity --entry --title="Dropbox Uploader V(11.13) -Move" --text="Write the root/name file"`
-        FILE_DST=`zenity --entry --title="Write destiny folder" --text="file"`
+        FILE_SRC=$ARG1
+        FILE_DST=$ARG2
 
         #Checking FILE_SRC
         if [[ $FILE_SRC == "" ]]; then
@@ -1189,15 +1177,13 @@ case $COMMAND in
         fi
 
         db_move "/$FILE_SRC" "/$FILE_DST"
-        `zenity --info --text="$FILE_SRC Was moved to $FILE_DST"`
-
 
     ;;
 
     copy)
 
-        FILE_SRC=`zenity --entry --title="Dropbox Uploader V(11.13) - Copy" --text="Write file to copy"`
-        FILE_DST=`zenity --entry --title="Write file copy destiny" --text="file"`
+        FILE_SRC=$ARG1
+        FILE_DST=$ARG2
 
         #Checking FILE_SRC
         if [[ $FILE_SRC == "" ]]; then
@@ -1214,13 +1200,12 @@ case $COMMAND in
         fi
 
         db_copy "/$FILE_SRC" "/$FILE_DST"
-        `zenity --info --text="$FILE_SRC Was copied"`
 
     ;;
 
     mkdir)
 
-        DIR_DST=`zenity --entry --title="Dropbox Uploader V(11.13) - Make Dir" --text="Enter folder name"`
+        DIR_DST=$ARG1
 
         #Checking DIR_DST
         if [[ $DIR_DST == "" ]]; then
@@ -1230,26 +1215,26 @@ case $COMMAND in
         fi
 
         db_mkdir "/$DIR_DST"
-        `zenity --info --text="the folder: $DIR_DST ,Was created"`
 
     ;;
 
     list)
 
-        DIR_DST=`zenity --entry --title="Dropbox Uploader V(11.13) - List" --text="Enter folder name to list"`
+        DIR_DST=$ARG1
 
         #Checking DIR_DST
         if [[ $DIR_DST = "" ]]; then
             DIR_DST="/"
         fi
 
-        `zenity --info --text="$(db_list "/$DIR_DST")"`
+        db_list "/$DIR_DST"
 
     ;;
 
     unlink)
 
-    db_unlink
+        db_unlink
+
     ;;
 
     *)
@@ -1258,6 +1243,8 @@ case $COMMAND in
             print "Error: Unknown command: $COMMAND\n\n"
             ERROR_STATUS=1
         fi
+        usage
+
     ;;
 
 esac
